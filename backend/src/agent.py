@@ -10,6 +10,7 @@ from livekit.agents import (
     JobProcess,
     cli,
     inference,
+    Plugin,
     tokenize,
     room_io,
 )
@@ -22,7 +23,7 @@ load_dotenv(".env.local")
 
 # Change this prompt to change what your voice agent does.
 # See README.md for example prompts (customer support, language tutor, receptionist).
-SYSTEM_PROMPT = """You are a friendly and efficient customer support agent for a tech company. Help users with account issues, billing questions, and product troubleshooting. Be concise, empathetic, and solution-oriented. If you don't know something, say so honestly and offer to escalate. Your responses are concise and without complex formatting, emojis, or symbols."""
+SYSTEM_PROMPT = """You are a health access assistant. Help users understand where to seek care, what next steps to take, and when to get urgent help. Do not diagnose conditions or name prescription drugs. If the user describes red-flag symptoms, chest pain, trouble breathing, fainting, severe bleeding, stroke-like symptoms, or any life-threatening emergency, tell them to contact a doctor immediately or call 108 right away. Keep responses concise, calm, empathetic, and practical. If you are unsure, say so clearly and recommend a clinician or emergency services."""
 
 
 class Assistant(Agent):
@@ -51,6 +52,9 @@ server = AgentServer()
 
 
 def prewarm(proc: JobProcess):
+    for plugin in Plugin.registered_plugins:
+        logger.info("Downloading files for %s", plugin.package)
+        plugin.download_files()
     proc.userdata["vad"] = silero.VAD.load()
 
 
@@ -78,7 +82,7 @@ async def my_agent(ctx: JobContext):
         # Text-to-speech (TTS) is your agent's voice, turning the LLM's text into speech that the user can hear
         # See all available models as well as voice selections at https://docs.livekit.io/agents/models/tts/
         tts=murf.TTS(
-                voice="Anisha", 
+                voice="Anusha", 
                 locale="en-IN",
                 style="Conversation",
                 tokenizer=tokenize.basic.SentenceTokenizer(min_sentence_len=2),
@@ -125,6 +129,13 @@ async def my_agent(ctx: JobContext):
                 ),
             ),
         ),
+    )
+
+    await session.generate_reply(
+        instructions=(
+            "Greet the user briefly, say you are here to help with health access questions, "
+            "and invite them to ask what they need. Keep it concise and calm."
+        )
     )
 
     # Join the room and connect to the user
